@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encrypted Messenger</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #121214; 
+            color: #e4e4e7; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 640px;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+            background: #1a1a1e;
+            border: 1px solid #2e2e33;
+            border-radius: 8px;
+        }
+
+        /* Top bar config area */
+        .config-header {
+            display: flex;
+            gap: 12px;
+            padding: 16px;
+            border-bottom: 1px solid #2e2e33;
+            background: #16161a;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .config-header input {
+            background: #121214;
+            border: 1px solid #2e2e33;
+            color: #e4e4e7;
+            padding: 8px 12px;
+            font-size: 14px;
+            border-radius: 4px;
+            outline: none;
+        }
+        
+        #nickname { width: 140px; }
+        #cipherKey { flex: 1; font-family: monospace; }
+
+        /* Main feed layout */
+        .message-feed {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message-block {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .message-meta {
+            font-size: 12px;
+            color: #71717a;
+        }
+
+        .message-text {
+            font-size: 15px;
+            line-height: 1.4;
+            color: #f4f4f5;
+        }
+
+        /* Bottom input container */
+        .input-footer {
+            display: flex;
+            padding: 16px;
+            border-top: 1px solid #2e2e33;
+            background: #16161a;
+            border-radius: 0 0 8px 8px;
+            gap: 12px;
+        }
+
+        .input-footer input {
+            flex: 1;
+            background: #121214;
+            border: 1px solid #2e2e33;
+            color: #e4e4e7;
+            padding: 12px;
+            font-size: 15px;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .input-footer button {
+            background: #3b82f6;
+            color: #ffffff;
+            border: none;
+            padding: 0 20px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .input-footer button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="chat-container">
+        <div class="config-header">
+            <input type="text" id="nickname" value="User_A" placeholder="Alias">
+            <input type="text" id="cipherKey" value="default-shared-pass" placeholder="Shared Encryption Key">
+        </div>
+
+        <div class="message-feed" id="messageFeed">
+            <div class="message-block">
+                <span class="message-meta">System</span>
+                <p class="message-text" style="color: #a1a1aa;">Connected. Messages are encrypted locally via XOR processing before transmission.</p>
+            </div>
+        </div>
+
+        <div class="input-footer">
+            <input type="text" id="messageInput" placeholder="Message..." onkeypress="if(event.key === 'Enter') handleSend()">
+            <button onclick="handleSend()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        
+        // Automatically switches between your local test server and your live production server
+        const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'ws://localhost:8080'
+            : 'wss://://onrender.com'; // We will update this exact link in Step 3!
+
+        const socket = new WebSocket(BACKEND_URL);
+
+
+        // Clean, explicit logic functions 
+        function processCrypto(text, key) {
+            return btoa(text.split('').map((char, i) => 
+                String.fromCharCode(char.charCodeAt(0) ^ key.charCodeAt(i % key.length))
+            ).join(''));
+        }
+
+        socket.onmessage = (event) => {
+            try {
+                const dataPacket = JSON.parse(event.data);
+                const currentKey = document.getElementById('cipherKey').value;
+                const decryptedStr = processCrypto(dataPacket.payload, currentKey);
+
+                renderMessage(dataPacket.sender, decryptedStr);
+            } catch (err) {
+                console.error("Unable to parse packet stream.");
+            }
+        };
+
+        function handleSend() {
+            const msgInput = document.getElementById('messageInput');
+            const nickInput = document.getElementById('nickname');
+            const keyInput = document.getElementById('cipherKey');
+
+            if (!msgInput.value.trim()) return;
+
+            const encryptedPayload = processCrypto(msgInput.value, keyInput.value);
+            
+            const packet = {
+                sender: nickInput.value || 'Anonymous',
+                payload: encryptedPayload
+            };
+
+            socket.send(JSON.stringify(packet));
+            renderMessage('You', msgInput.value);
+            
+            msgInput.value = '';
+        }
+
+        function renderMessage(author, text) {
+            feed.innerHTML += `
+                <div class="message-block">
+                    <span class="message-meta">${author}</span>
+                    <p class="message-text">${text}</p>
+                </div>
+            `;
+            feed.scrollTop = feed.scrollHeight;
+        }
+    </script>
+</body>
+</html>
