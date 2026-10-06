@@ -138,12 +138,13 @@
 
     <script>
         
-        // Automatically switches between your local test server and your live production server
+        // Switches automatically between local testing and your live cloud server
         const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
             ? 'ws://localhost:8080'
-            : 'wss://://onrender.com'; // We will update this exact link in Step 3!
+            : 'wss://priv-chat-kwk8.onrender.com'; // Your exact live node URL
 
         const socket = new WebSocket(BACKEND_URL);
+
 
 
         // Clean, explicit logic functions 
